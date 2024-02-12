@@ -1,11 +1,13 @@
 import logging
-from functools import lru_cache
-from crawler.proxy import ProxyManager
 import re
-from urllib.parse import urlparse,urlunparse
+from functools import lru_cache
+from urllib.parse import urlparse, urlunparse
+
+from crawler.proxy import ProxyManager
 
 pm = ProxyManager()
 log = logging.getLogger(__name__)
+
 
 def clean_url(url):
 
@@ -18,14 +20,14 @@ def clean_url(url):
         url = urlunparse(parsed)
 
     # clean text anchor from urls if available
-    pattern = r'(.+)(\/#[a-zA-Z0-9]+)$'
+    pattern = r"(.+)(\/#[a-zA-Z0-9]+)$"
     m = re.match(pattern, url)
 
     if m:
         return m.group(1)
     else:
         # clean trailing slash if available
-        pattern = r'(.+)(\/)$'
+        pattern = r"(.+)(\/)$"
         m = re.match(pattern, url)
 
         if m:
@@ -37,7 +39,7 @@ def clean_url(url):
 def get_content_type(response):
     content_type = response.headers.get("content-type")
     if content_type:
-        return content_type.split(';')[0]
+        return content_type.split(";")[0]
 
 
 @lru_cache(maxsize=8192)
@@ -64,6 +66,6 @@ def call(session, url, use_proxy=False, retries=0):
             response.raise_for_status()
         except Exception as e:
             # try with proxy
-            return call(session,url,use_proxy=True)
+            return call(session, url, use_proxy=True)
         else:
             return response

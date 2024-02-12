@@ -1,6 +1,8 @@
-from urllib.request import Request, urlopen
-from bs4 import BeautifulSoup
 import datetime
+from urllib.request import Request, urlopen
+
+from bs4 import BeautifulSoup
+
 from crawler.downloaders import get_user_agent
 
 
@@ -23,23 +25,25 @@ class ProxyManager:
         self.current_index = 0
         self.requests_counter = 0
 
-        proxies_req = Request('https://www.sslproxies.org/')
-        proxies_req.add_header('User-Agent', ua)
-        proxies_doc = urlopen(proxies_req).read().decode('utf8')
+        proxies_req = Request("https://www.sslproxies.org/")
+        proxies_req.add_header("User-Agent", ua)
+        proxies_doc = urlopen(proxies_req).read().decode("utf8")
 
-        soup = BeautifulSoup(proxies_doc, 'html.parser')
-        proxies_table = soup.find(id='proxylisttable')
+        soup = BeautifulSoup(proxies_doc, "html.parser")
+        proxies_table = soup.find(id="proxylisttable")
 
-        for row in proxies_table.tbody.find_all('tr'):
+        for row in proxies_table.tbody.find_all("tr"):
 
-            ip = row.find_all('td')[0].string
-            port = row.find_all('td')[1].string
+            ip = row.find_all("td")[0].string
+            port = row.find_all("td")[1].string
 
-            if ip not in self.blacklisted and ip not in [x['ip'] for x in self.proxies]:
-                self.proxies.append({
-                    'ip': ip,
-                    'port': port,
-                })
+            if ip not in self.blacklisted and ip not in [x["ip"] for x in self.proxies]:
+                self.proxies.append(
+                    {
+                        "ip": ip,
+                        "port": port,
+                    }
+                )
 
         self.last_updated = datetime.datetime.now()
 
@@ -57,7 +61,11 @@ class ProxyManager:
     def get_proxy(self):
 
         # get proxy list
-        if self.last_updated is None or int((datetime.datetime.now() - self.last_updated).total_seconds() / 60) > self.update_interval_min:
+        if (
+            self.last_updated is None
+            or int((datetime.datetime.now() - self.last_updated).total_seconds() / 60)
+            > self.update_interval_min
+        ):
             self.get_list()
 
         if len(self.proxies) == 0:
@@ -72,7 +80,13 @@ class ProxyManager:
                 return {}, None
 
         proxy_dict = {
-            'http': "http://" + self.proxies[self.current_index]['ip'] + ":" + self.proxies[self.current_index]['port'],
-            'https': "http://" + self.proxies[self.current_index]['ip'] + ":" + self.proxies[self.current_index]['port']
+            "http": "http://"
+            + self.proxies[self.current_index]["ip"]
+            + ":"
+            + self.proxies[self.current_index]["port"],
+            "https": "http://"
+            + self.proxies[self.current_index]["ip"]
+            + ":"
+            + self.proxies[self.current_index]["port"],
         }
-        return proxy_dict, self.proxies[self.current_index]['ip']
+        return proxy_dict, self.proxies[self.current_index]["ip"]

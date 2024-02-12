@@ -1,9 +1,13 @@
+import time
+from urllib.parse import urljoin, urlparse
+
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from urllib.parse import urlparse, urljoin
+from selenium.common.exceptions import (
+    ElementClickInterceptedException,
+    InvalidSessionIdException,
+)
 from selenium.webdriver.firefox.options import Options
-from selenium.common.exceptions import InvalidSessionIdException, ElementClickInterceptedException
-import time
 
 
 def get_hrefs_html(response, follow_foreign_hosts=False):
@@ -11,7 +15,7 @@ def get_hrefs_html(response, follow_foreign_hosts=False):
     output = []
     soup = BeautifulSoup(response.text, "lxml")
     parsed_response_url = urlparse(response.url)
-    urls_on_page = [link.attrs.get("href") for link in soup.find_all('a')]
+    urls_on_page = [link.attrs.get("href") for link in soup.find_all("a")]
 
     for url in urls_on_page:
 
@@ -27,7 +31,10 @@ def get_hrefs_html(response, follow_foreign_hosts=False):
                 url = urljoin(response.url, parsed_url.path)
                 parsed_url = urlparse(url)
 
-            if parsed_response_url.netloc != parsed_url.netloc and not follow_foreign_hosts:
+            if (
+                parsed_response_url.netloc != parsed_url.netloc
+                and not follow_foreign_hosts
+            ):
                 follow = False
 
             urls.add(url)
@@ -36,8 +43,10 @@ def get_hrefs_html(response, follow_foreign_hosts=False):
     return output
 
 
-def handle_url_list_js(output_list, new_urls, parsed_response_url, follow_foreign_hosts):
-    urls_present = [x['url'] for x in output_list]
+def handle_url_list_js(
+    output_list, new_urls, parsed_response_url, follow_foreign_hosts
+):
+    urls_present = [x["url"] for x in output_list]
     new_output = []
 
     for url in new_urls:
@@ -47,7 +56,10 @@ def handle_url_list_js(output_list, new_urls, parsed_response_url, follow_foreig
             follow = True
             parsed_url = urlparse(url)
 
-            if parsed_response_url.netloc != parsed_url.netloc and not follow_foreign_hosts:
+            if (
+                parsed_response_url.netloc != parsed_url.netloc
+                and not follow_foreign_hosts
+            ):
                 follow = False
 
             urls_present.append(url)
@@ -64,7 +76,9 @@ def get_hrefs_js_simple(response, follow_foreign_hosts=False):
     except Exception:
         return get_hrefs_html(response, follow_foreign_hosts)
 
-    return handle_url_list_js([], urls_on_page, parsed_response_url, follow_foreign_hosts)
+    return handle_url_list_js(
+        [], urls_on_page, parsed_response_url, follow_foreign_hosts
+    )
 
 
 def is_valid_link(link):
@@ -76,7 +90,15 @@ def is_valid_link(link):
 def make_element_id(element):
     id_str = ""
 
-    css_properties = ["font-size", "font-weight", "margin", "padding", "color", "position", "display"]
+    css_properties = [
+        "font-size",
+        "font-weight",
+        "margin",
+        "padding",
+        "color",
+        "position",
+        "display",
+    ]
 
     try:
         id_str += "text=" + str(element.text) + ";"
@@ -98,7 +120,9 @@ def make_element_id(element):
 
 class ClickCrawler:
 
-    def __init__(self, process_handler, executable_path, response, follow_foreign_hosts=False):
+    def __init__(
+        self, process_handler, executable_path, response, follow_foreign_hosts=False
+    ):
 
         self.process_handler = process_handler
         self.executable_path = executable_path
@@ -116,7 +140,9 @@ class ClickCrawler:
 
         driver_options = Options()
         driver_options.headless = True
-        self.driver = webdriver.Firefox(executable_path=self.executable_path, options=driver_options)
+        self.driver = webdriver.Firefox(
+            executable_path=self.executable_path, options=driver_options
+        )
 
         self.process_handler.register_new_process(self.driver.service.process.pid)
 
@@ -135,8 +161,13 @@ class ClickCrawler:
 
             # Go through all elements on page and look where the cursor is a pointer
             for k, element in enumerate(elements):
-                if element.size['height'] > 0 and element.size['width'] > 0 and not is_valid_link(element.get_attribute("href")) and element.value_of_css_property(
-                        "cursor") == "pointer" and element.value_of_css_property("display") != "none":
+                if (
+                    element.size["height"] > 0
+                    and element.size["width"] > 0
+                    and not is_valid_link(element.get_attribute("href"))
+                    and element.value_of_css_property("cursor") == "pointer"
+                    and element.value_of_css_property("display") != "none"
+                ):
                     el_id = make_element_id(element)
                     if el_id not in self.handled and el_id is not None:
                         return element, el_id
@@ -157,7 +188,9 @@ class ClickCrawler:
                 return el
         return None
 
-    def get_new_urls_with_click(self, click_next_element, next_element_id, tried_refresh=False):
+    def get_new_urls_with_click(
+        self, click_next_element, next_element_id, tried_refresh=False
+    ):
 
         new_urls_on_page = []
 
@@ -176,9 +209,11 @@ class ClickCrawler:
                 # sleep to allow for eventual ajax to load
                 time.sleep(3)
 
-                new_urls_on_page = [link.get_attribute("href") for link in \
-                                    self.driver.find_elements_by_css_selector("a") \
-                                    if is_valid_link(link.get_attribute("href"))]
+                new_urls_on_page = [
+                    link.get_attribute("href")
+                    for link in self.driver.find_elements_by_css_selector("a")
+                    if is_valid_link(link.get_attribute("href"))
+                ]
 
         except Exception:
             if not tried_refresh:
@@ -197,11 +232,15 @@ class ClickCrawler:
 
         self.main_url = self.driver.current_url
 
-        urls_on_page = [link.get_attribute("href") for link in \
-                        self.driver.find_elements_by_css_selector("a") \
-                        if is_valid_link(link.get_attribute("href"))]
+        urls_on_page = [
+            link.get_attribute("href")
+            for link in self.driver.find_elements_by_css_selector("a")
+            if is_valid_link(link.get_attribute("href"))
+        ]
 
-        urls += handle_url_list_js(urls, urls_on_page, parsed_response_url, self.follow_foreign_hosts)
+        urls += handle_url_list_js(
+            urls, urls_on_page, parsed_response_url, self.follow_foreign_hosts
+        )
 
         # get clickable elements
         self.handled = []
@@ -219,7 +258,9 @@ class ClickCrawler:
 
             new_urls_on_page = self.get_new_urls_with_click(click_next_element, next_id)
 
-            urls += handle_url_list_js(urls, new_urls_on_page, parsed_response_url, self.follow_foreign_hosts)
+            urls += handle_url_list_js(
+                urls, new_urls_on_page, parsed_response_url, self.follow_foreign_hosts
+            )
 
         self.driver.close()
         self.process_handler.kill_all()

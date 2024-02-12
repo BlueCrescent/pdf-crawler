@@ -1,9 +1,18 @@
-from crawler.helper import get_content_type, call, clean_url
-from crawler.crawl_methods import get_hrefs_html, get_hrefs_js_simple, ClickCrawler
+from crawler.crawl_methods import ClickCrawler, get_hrefs_html, get_hrefs_js_simple
+from crawler.helper import call, clean_url, get_content_type
 
 
 class Crawler:
-    def __init__(self, downloader, get_handlers=None, head_handlers=None, follow_foreign_hosts=False, crawl_method="normal", gecko_path="geckodriver", process_handler=None):
+    def __init__(
+        self,
+        downloader,
+        get_handlers=None,
+        head_handlers=None,
+        follow_foreign_hosts=False,
+        crawl_method="normal",
+        gecko_path="geckodriver",
+        process_handler=None,
+    ):
 
         # Crawler internals
         self.downloader = downloader
@@ -17,7 +26,22 @@ class Crawler:
         self.follow_foreign = follow_foreign_hosts
         self.executable_path_gecko = gecko_path
         # these file endings are excluded to speed up the crawling (assumed that urls ending with these strings are actual files)
-        self.file_endings_exclude = [".mp3", ".wav", ".mkv", ".flv", ".vob", ".ogv", ".ogg", ".gif", ".avi", ".mov", ".wmv", ".mp4", ".mp3", ".mpg"]
+        self.file_endings_exclude = [
+            ".mp3",
+            ".wav",
+            ".mkv",
+            ".flv",
+            ".vob",
+            ".ogv",
+            ".ogg",
+            ".gif",
+            ".avi",
+            ".mov",
+            ".wmv",
+            ".mp4",
+            ".mp3",
+            ".mpg",
+        ]
 
         # 3 possible values:
         # "normal" (default) => simple html crawling (no js),
@@ -69,7 +93,12 @@ class Crawler:
                 urls = self.get_urls(response)
                 self.handled.add(final_url)
                 for next_url in urls:
-                    self.crawl(next_url['url'], depth, previous_url=url, follow=next_url['follow'])
+                    self.crawl(
+                        next_url["url"],
+                        depth,
+                        previous_url=url,
+                        follow=next_url["follow"],
+                    )
         else:
             self.handled.add(final_url)
 
@@ -78,7 +107,12 @@ class Crawler:
         if self.crawl_method == "rendered":
             urls = get_hrefs_js_simple(response, self.follow_foreign)
         elif self.crawl_method == "rendered-all":
-            click_crawler = ClickCrawler(self.process_handler, self.executable_path_gecko, response, self.follow_foreign)
+            click_crawler = ClickCrawler(
+                self.process_handler,
+                self.executable_path_gecko,
+                response,
+                self.follow_foreign,
+            )
             urls = click_crawler.get_hrefs_js_complex()
         else:
             # plain html
