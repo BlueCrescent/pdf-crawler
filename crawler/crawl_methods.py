@@ -2,12 +2,12 @@ import time
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
+from psutil import NoSuchProcess
 from selenium import webdriver
-from selenium.common.exceptions import (
-    ElementClickInterceptedException,
-    InvalidSessionIdException,
-)
+from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.firefox.service import Service
+from webdriver_manager.firefox import GeckoDriverManager
 
 
 def get_hrefs_html(response, follow_foreign_hosts=False):
@@ -121,7 +121,13 @@ def make_element_id(element):
 class ClickCrawler:
 
     def __init__(
-        self, process_handler, executable_path, response, follow_foreign_hosts=False
+        self,
+        process_handler,
+        executable_path,
+        response,
+        download_folder: str,
+        browser_pref_lang: str,
+        follow_foreign_hosts: bool = False,
     ):
 
         self.process_handler = process_handler
@@ -129,6 +135,8 @@ class ClickCrawler:
         self.driver = None
         self.handled = []
         self.main_url = response.url
+        self.download_folder = download_folder
+        self.browser_pref_lang = browser_pref_lang
         self.follow_foreign_hosts = follow_foreign_hosts
 
         self.iterations_limit = 500
@@ -139,10 +147,18 @@ class ClickCrawler:
         self.process_handler.kill_all()
 
         driver_options = Options()
-        driver_options.headless = True
-        self.driver = webdriver.Firefox(
-            executable_path=self.executable_path, options=driver_options
+        driver_options.add_argument("-headless")
+        driver_options.set_preference("browser.download.folderList", 2)
+        driver_options.set_preference(
+            "browser.download.manager.showWhenStarting", False
         )
+        driver_options.set_preference("browser.download.dir", self.download_folder)
+        driver_options.set_preference(
+            "browser.helperApps.neverAsk.saveToDisk", "application/x-gzip"
+        )
+        driver_options.set_preference("intl.accept_languages", self.browser_pref_lang)
+        driver_service = Service(GeckoDriverManager().install())
+        self.driver = webdriver.Firefox(options=driver_options, service=driver_service)
 
         self.process_handler.register_new_process(self.driver.service.process.pid)
 
@@ -157,7 +173,7 @@ class ClickCrawler:
 
     def find_next_clickable_element(self, tried_refresh=False):
         try:
-            elements = self.driver.find_elements_by_css_selector("*")
+            elements = self.driver.find_elements(by=By.CSS_SELECTOR, value="*")
 
             # Go through all elements on page and look where the cursor is a pointer
             for k, element in enumerate(elements):
@@ -180,7 +196,7 @@ class ClickCrawler:
         return None, None
 
     def find_element_by_id(self, element_id):
-        elements = self.driver.find_elements_by_css_selector("*")
+        elements = self.driver.find_elements(by=By.CSS_SELECTOR, value="*")
 
         for el in elements:
             el_id = make_element_id(el)
@@ -211,7 +227,7 @@ class ClickCrawler:
 
                 new_urls_on_page = [
                     link.get_attribute("href")
-                    for link in self.driver.find_elements_by_css_selector("a")
+                    for link in self.driver.find_elements(by=By.CSS_SELECTOR, value="a")
                     if is_valid_link(link.get_attribute("href"))
                 ]
 
@@ -234,7 +250,7 @@ class ClickCrawler:
 
         urls_on_page = [
             link.get_attribute("href")
-            for link in self.driver.find_elements_by_css_selector("a")
+            for link in self.driver.find_elements(by=By.CSS_SELECTOR, value="a")
             if is_valid_link(link.get_attribute("href"))
         ]
 
@@ -258,9 +274,16 @@ class ClickCrawler:
 
             new_urls_on_page = self.get_new_urls_with_click(click_next_element, next_id)
 
-            urls += handle_url_list_js(
-                urls, new_urls_on_page, parsed_response_url, self.follow_foreign_hosts
-            )
+            try:
+                urls += handle_url_list_js(
+                    urls,
+                    new_urls_on_page,
+                    parsed_response_url,
+                    self.follow_foreign_hosts,
+                )
+            except NoSuchProcess:
+                print(f"Driver process was killed, restarting...")
+                self.load_driver()
 
         self.driver.close()
         self.process_handler.kill_all()

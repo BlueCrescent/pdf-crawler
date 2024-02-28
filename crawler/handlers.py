@@ -67,6 +67,58 @@ class CSVStatsPDFHandler:
             writer.writerow(row)
 
 
+class CSVStatsNonPDFHandler:
+    _FIELDNAMES = [
+        "url",
+        "linking_page_url",
+        "size",
+        "depth",
+        "follow",
+    ]
+
+    def __init__(self, directory, name):
+        self.directory = directory
+        self.name = name
+        os.makedirs(directory, exist_ok=True)
+
+    def get_handled_list(self):
+        list_handled = []
+        if self.name:
+            file_name = os.path.join(self.directory, self.name + "_non_pdf.csv")
+            if os.path.isfile(file_name):
+                with open(file_name, newline="") as csvfile:
+                    reader = csv.reader(csvfile)
+                    for k, row in enumerate(reader):
+                        if k > 0:
+                            list_handled.append(row[2])
+        return list_handled
+
+    def handle(
+        self, response, depth, previous_url, local_name, follow, *args, **kwargs
+    ):
+        if local_name is not None:
+            print(
+                f"Warning: {response.url} is not a PDF file, but was handled as such (with {local_name=})."
+            )
+        parsed_url = urlparse(response.url)
+        name = self.name or parsed_url.netloc
+        output = os.path.join(self.directory, name + "_non_pdf.csv")
+        if not os.path.isfile(output):
+            with open(output, "w", newline="") as file:
+                csv.writer(file).writerow(self._FIELDNAMES)
+
+        with open(output, "a", newline="") as file:
+            writer = csv.DictWriter(file, self._FIELDNAMES)
+            row = {
+                "url": response.url,
+                "linking_page_url": previous_url or "",
+                "size": response.headers.get("Content-Length") or "",
+                "depth": depth,
+                "follow": follow,
+            }
+            writer.writerow(row)
+
+
 class ProcessHandler:
 
     def __init__(self):
@@ -82,12 +134,17 @@ class ProcessHandler:
 
             try:
                 parent_process = psutil.Process(int(pid))
-            except psutil._exceptions.NoSuchProcess:
+            except psutil.NoSuchProcess:
                 continue
             children = parent_process.children(recursive=True)
 
             for c in children:
-                c.terminate()
+                try:
+                    c.terminate()
+                except psutil.NoSuchProcess:
+                    print(
+                        f"Process {c.pid} does not exist anymore. Failed to terminate."
+                    )
 
             parent_process.terminate()
 

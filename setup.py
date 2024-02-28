@@ -10,6 +10,7 @@ setup(
         "selenium",
         "requests_html",
         "psutil",
+        "webdriver-manager",
     ],
     extras_require={
         "tests": [

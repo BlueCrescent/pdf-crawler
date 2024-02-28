@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 from crawler.crawler import Crawler
 from crawler.downloaders import RequestsDownloader
 from crawler.handlers import (
+    CSVStatsNonPDFHandler,
     CSVStatsPDFHandler,
     LocalStoragePDFHandler,
     ProcessHandler,
@@ -23,6 +24,8 @@ requests_downloader = RequestsDownloader()
 def crawl(
     url,
     output_dir,
+    download_folder: str,
+    browser_pref_lang: str,
     depth=2,
     method="normal",
     gecko_path="geckodriver",
@@ -45,6 +48,9 @@ def crawl(
         head_handlers["application/pdf"] = CSVStatsPDFHandler(
             directory=output_dir, name=page_name
         )
+        head_handlers["text/html"] = CSVStatsNonPDFHandler(
+            directory=output_dir, name=page_name
+        )
     else:
         for content_type, Handler in custom_stats_handler.items():
             head_handlers[content_type] = Handler
@@ -59,6 +65,8 @@ def crawl(
 
     crawler = Crawler(
         downloader=requests_downloader,
+        download_folder=download_folder,
+        browser_pref_lang=browser_pref_lang,
         head_handlers=head_handlers,
         get_handlers=get_handlers,
         follow_foreign_hosts=False,

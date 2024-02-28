@@ -6,6 +6,8 @@ class Crawler:
     def __init__(
         self,
         downloader,
+        download_folder: str,
+        browser_pref_lang: str,
         get_handlers=None,
         head_handlers=None,
         follow_foreign_hosts=False,
@@ -16,6 +18,8 @@ class Crawler:
 
         # Crawler internals
         self.downloader = downloader
+        self.download_folder = download_folder
+        self.browser_pref_lang = browser_pref_lang
         self.get_handlers = get_handlers or {}
         self.head_handlers = head_handlers or {}
         self.session = self.downloader.session()
@@ -85,7 +89,7 @@ class Crawler:
 
         head_handler = self.head_handlers.get(content_type)
         if head_handler:
-            head_handler.handle(response, depth, previous_url, local_name)
+            head_handler.handle(response, depth, previous_url, local_name, follow)
 
         if content_type == "text/html":
             if depth and follow:
@@ -111,6 +115,8 @@ class Crawler:
                 self.process_handler,
                 self.executable_path_gecko,
                 response,
+                self.download_folder,
+                self.browser_pref_lang,
                 self.follow_foreign,
             )
             urls = click_crawler.get_hrefs_js_complex()
